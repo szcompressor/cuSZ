@@ -1,7 +1,5 @@
 
 #include "compressor.inl"
 
-template struct psz::compression_pipeline<f4, u2>;
-template struct psz::compression_pipeline<f8, u2>;
-template struct psz::compression_pipeline<f4, u4>;
-template struct psz::compression_pipeline<f8, u4>;
+template struct psz::compressor_cpp<f4>;
+template struct psz::compressor_cpp<f8>;

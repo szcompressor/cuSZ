@@ -3,6 +3,7 @@
 
 #include "module.hh"
 
+using phf::needs_book;
 using psz::PredictorFeature;
 using psz::_2609::compose;
 using psz::_2609::is_generic;
@@ -11,7 +12,6 @@ using psz::_2609::ModuleCodec2;
 using psz::_2609::ModuleLorenzo;
 using psz::_2609::ModuleSplineY24;
 using psz::_2609::ModuleSplineY25;
-using psz::_2609::needs_book;
 using psz::_2609::Pipeline;
 using psz::_2609::preset_of;
 using psz::_2609::valid;

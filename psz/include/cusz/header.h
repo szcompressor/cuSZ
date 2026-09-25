@@ -8,8 +8,8 @@ extern "C" {
 #include "cusz/type.h"
 
 #define PSZHEADER_HEADER 0
-#define PSZHEADER_ANCHOR 1
-#define PSZHEADER_ENCODED 2
+#define PSZHEADER_ENCODED 1
+#define PSZHEADER_ANCHOR 2
 #define PSZHEADER_SPFMT 3
 // #define PSZHEADER_END 4
 #define PSZHEADER_ENC_PASS1_END 4

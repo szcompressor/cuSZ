@@ -12,6 +12,7 @@
 #include "compressor.hh"
 #include "context_impl.h"
 #include "cusz.h"
+#include "module.hh"
 #include "ptb.hh"
 #include "utils/dtype_dispatch.hh"
 #include "utils/err.hh"
@@ -59,8 +60,8 @@ static void tofile_or_throw(const string& fname, T* src, size_t len)
 template <typename T>
 static void report_decomp(psz_ctx* args, psz_header* header, size_t len)
 {
-  if (args->cli->report_time) psz_review_decompression(nullptr, sizeof(T) * len);
-  if (args->cli->verbose) psz_review_decomp_time_from_header(header);
+  if (args->cli->report_cr) psz_review_decompression(header);
+  if (args->cli->verbose) psz_review_decompression_verbose(header);
 }
 
 template <typename T>
@@ -120,10 +121,17 @@ void psz_compress_task(psz_ctx* args)
         fromfile_or_throw(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m              = psz_init(F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        if (ppl.codec2 == CodecNull)
+          m = psz_compress_init(F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, stream);
+        else
+          m = psz_compress_init_3stage(F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, stream);
         m->cli         = args->cli;
-        auto stat      = psz_compress_float(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(), &header,
-                                            &d_internal_compressed, &compressed_len);
+        double eb      = CLI_eb(args);
+        if (CLI_mode(args) == Rel) eb *= psz_compress_extrema_float(m, d_in.get()).rng;
+        int stat = psz_last_error();
+        if (stat == PSZ_SUCCESS) stat = psz_compress_process_float(m, ppl, eb, d_in.get());
+        if (stat == PSZ_SUCCESS)
+          stat = psz_compress_archive(m, &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
@@ -134,10 +142,17 @@ void psz_compress_task(psz_ctx* args)
         fromfile_or_throw(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m              = psz_init(F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        if (ppl.codec2 == CodecNull)
+          m = psz_compress_init(F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, stream);
+        else
+          m = psz_compress_init_3stage(F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, stream);
         m->cli         = args->cli;
-        auto stat = psz_compress_double(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(), &header,
-                                        &d_internal_compressed, &compressed_len);
+        double eb      = CLI_eb(args);
+        if (CLI_mode(args) == Rel) eb *= psz_compress_extrema_double(m, d_in.get()).rng;
+        int stat = psz_last_error();
+        if (stat == PSZ_SUCCESS) stat = psz_compress_process_double(m, ppl, eb, d_in.get());
+        if (stat == PSZ_SUCCESS)
+          stat = psz_compress_archive(m, &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
@@ -148,10 +163,10 @@ void psz_compress_task(psz_ctx* args)
   if (args->cli->report_time) fprintf(stderr, "Reporting time is disabled/to be updated.\n");
 
   if (args->cli->report_cr) {
-    psz_review_comp_time_from_header(&header);
+    psz_review_compression(&header);
     if (args->cli->verbose) {
       printf("\n\e[1m\e[31mREPORT::COMPRESSION::FILE\e[0m\n");
-      psz_review_comp_time_from_header_verbose(&header);
+      psz_review_compression_verbose(&header);
     }
   }
 
@@ -217,13 +232,13 @@ void psz_decompress_task(psz_ctx* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_ctx* m = psz_init_from_header(header, stream);
+  psz_ctx* m = psz_decompress_init(header, stream);
   m->cli     = args->cli;
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
-        auto stat       = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat = psz_decompress_process_float(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
         check_gpu_or_throw(stream);
@@ -233,7 +248,7 @@ void psz_decompress_task(psz_ctx* args)
       })
       .on<double, F8>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(double, len);
-        auto stat       = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat = psz_decompress_process_double(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
         check_gpu_or_throw(stream);

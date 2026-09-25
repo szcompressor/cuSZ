@@ -7,16 +7,16 @@ static void pszcxx_evaluate_quality_gpu(
     T* reconstructed, T* origin, size_t len, size_t compressed_bytes = 0)
 {
   // cross
-  auto stat_x = new psz_statistics;
+  auto stat_x = new psz_stats;
   psz::dpl::GPU_assess_quality<T>(stat_x, reconstructed, origin, len);
   psz::analysis::print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
-  auto stat_auto_lag1 = new psz_statistics;
+  auto stat_auto_lag1 = new psz_stats;
   psz::dpl::GPU_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
-  auto stat_auto_lag2 = new psz_statistics;
+  auto stat_auto_lag2 = new psz_stats;
   psz::dpl::GPU_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
-  psz::utils::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
+  psz::utils::print_metrics_auto(&stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
@@ -27,7 +27,7 @@ static void psz::analysis::CPU_evaluate_quality_and_print(
 {
   sycl::device dev_ct1;
   sycl::queue q_ct1(dev_ct1, sycl::property_list{sycl::property::queue::in_order()});
-  auto stat = new psz_statistics;
+  auto stat = new psz_stats;
   T* reconstructed;
   T* origin;
   if (not from_device) {
@@ -45,12 +45,12 @@ static void psz::analysis::CPU_evaluate_quality_and_print(
   psz::analysis::assess_quality<ONEAPI, T>(stat, reconstructed, origin, len);
   psz::analysis::print_metrics_cross<T>(stat, compressed_bytes, false);
 
-  auto stat_auto_lag1 = new psz_statistics;
+  auto stat_auto_lag1 = new psz_stats;
   psz::analysis::assess_quality<ONEAPI, T>(stat_auto_lag1, origin, origin + 1, len - 1);
-  auto stat_auto_lag2 = new psz_statistics;
+  auto stat_auto_lag2 = new psz_stats;
   psz::analysis::assess_quality<ONEAPI, T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
-  psz::utils::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
+  psz::utils::print_metrics_auto(&stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   if (from_device) {
     reconstructed = (T*)sycl::free(reconstructed, q_ct1);

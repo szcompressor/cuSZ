@@ -16,7 +16,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
+void GPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t len)
 {
   static_assert(std::is_same_v<T, f4>, "No f8 for local GPU; fast fail on sycl::aspects::fp64.");
 
@@ -67,19 +67,19 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
   s->xdata.avg = xdata_avg;
   s->xdata.std = std_xdata;
 
-  s->max_err_idx = max_abserr_index;
-  s->max_err_abs = max_abserr;
-  s->max_err_rel = max_abserr / s->odata.rng;
-  s->max_err_pwrrel = NAN;
+  s->max_err.idx = max_abserr_index;
+  s->max_err.abs = max_abserr;
+  s->max_err.rel = max_abserr / s->odata.rng;
+  s->max_err.pwrrel = NAN;
 
-  s->score_coeff = ee / std_odata / std_xdata;
-  s->score_MSE = sum_err2 / len;
-  s->score_NRMSE = sqrt(s->score_MSE) / s->odata.rng;
-  s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
+  s->score.coeff = ee / std_odata / std_xdata;
+  s->score.MSE = sum_err2 / len;
+  s->score.NRMSE = sqrt(s->score.MSE) / s->odata.rng;
+  s->score.PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
 }
 
 }  // namespace psz::dpl
 
 #define __INSTANTIATE_DPL_ASSESS(T)              \
   template void psz::dpl::GPU_assess_quality<T>( \
-      psz_statistics * s, T * xdata, T * odata, size_t const len);
+      psz_stats * s, T * xdata, T * odata, size_t const len);

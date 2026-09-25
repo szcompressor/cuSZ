@@ -314,7 +314,6 @@ install(FILES
 )
 
 install(FILES
-  psz/include/cusz_rev1.h
   psz/include/cusz.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/include
 )

@@ -45,12 +45,12 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
   u1* d_encoded = nullptr;
   size_t encoded_len = 0;
   phf_header header{};
-  int rc = phf::high_level<E>::HFR_encode(
+  int rc = phf::high_level<E>::HFR_PBK_encode(
       buf_enc.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream,
       psz_codec::HFR_PBKGO, nullptr, nullptr, HFR_Opts{DefaultReduceTimes, Mag, 128});
   sync_by_stream(stream);
   if (rc != 0) {
-    fprintf(stderr, "[%s] FAIL: HFR_encode returned %d\n", label, rc);
+    fprintf(stderr, "[%s] FAIL: HFR_PBK_encode returned %d\n", label, rc);
     return false;
   }
 

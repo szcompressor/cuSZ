@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-#include "cusz_rev1.h"
+#include "cusz.h"
 
 namespace {
 
@@ -41,7 +41,11 @@ bool run(stage const& s, shape const& sh, float* d_in, float* d_out, void* strea
 {
   if (s.needs_3d and sh.z == 1) return true;
   printf("  %-8s %-14s ... ", sh.name, s.name), fflush(stdout);
-  auto* enc = psz_init_from_stages(F4, psz_len{sh.x, sh.y, sh.z}, s.p1, s.c1, s.c2, stream);
+  psz_ctx* enc = nullptr;
+  if (s.c2 == CodecNull)
+    enc = psz_compress_init(F4, psz_len{sh.x, sh.y, sh.z}, stream);
+  else
+    enc = psz_compress_init_3stage(F4, psz_len{sh.x, sh.y, sh.z}, stream);
   if (not enc) {
     printf("SKIP\n");
     return true;
@@ -57,17 +61,28 @@ bool run(stage const& s, shape const& sh, float* d_in, float* d_out, void* strea
     psz_header hdr{};
     u1* d_comp = nullptr;
     size_t comp_len = 0;
-    psz_rc2 rc{Rel, 1e-3};
+    double const eb = 1e-3 * psz_compress_extrema_float(enc, d_in).rng;
+    int st = psz_last_error();
+    if (st == PSZ_SUCCESS and it == 2) {
+      psz_compress_reset(enc);
+      psz_compress_process_float(enc, psz_ppl{Lorenzo, HistGeneric, HFR_V4, CodecNull}, eb, d_in);
+    }
+    for (int k = 0; k <= it % 2 and st == PSZ_SUCCESS; k++) {
+      st = psz_compress_reset(enc);
+      if (st == PSZ_SUCCESS)
+        st = psz_compress_process_float(enc, psz_ppl{s.p1, HistGeneric, s.c1, s.c2}, eb, d_in);
+    }
 
-    if (psz_compress_float(enc, rc, d_in, &hdr, &d_comp, &comp_len) != PSZ_SUCCESS) {
+    if (st != PSZ_SUCCESS or psz_compress_archive(enc, &hdr, &d_comp, &comp_len) != PSZ_SUCCESS) {
       printf("  %-8s %-14s FAIL compress at iter %d\n", sh.name, s.name, it);
       ok = false;
       break;
     }
-    if (not dec) dec = psz_init_from_header(&hdr, stream);
+    if (not dec) dec = psz_decompress_init(&hdr, stream);
 
     cudaMemsetAsync(d_out, 0, LEN * sizeof(float), (cudaStream_t)stream);
-    if (psz_decompress_float(dec, d_comp, comp_len, d_out) != PSZ_SUCCESS) {
+    if (psz_decompress_reset(dec) != PSZ_SUCCESS or
+        psz_decompress_process_float(dec, d_comp, comp_len, d_out) != PSZ_SUCCESS) {
       printf("  %-8s %-14s FAIL decompress at iter %d\n", sh.name, s.name, it);
       ok = false;
       break;

@@ -6,10 +6,11 @@
 #include <vector>
 
 #include "cusz/type.h"
-#include "stat.h"
 
 using std::string;
 using std::vector;
+
+void psz_print_document(bool full);
 
 namespace psz::analysis {
 

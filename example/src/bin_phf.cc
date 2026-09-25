@@ -328,6 +328,18 @@ struct Arguments {
 }  // namespace
 
 template <typename E>
+static int hfr_encode(
+    psz_codec codec, phf::Buf<E>* buf, E* in, size_t len, u1** out, size_t* outlen,
+    phf_header& header, void* stream, float* ms_enc, float* ms_lago, HFR_Opts opts)
+{
+  if (codec == HFR)
+    return phf::high_level<E>::HFR_RTBK_encode(
+        buf, in, len, out, outlen, header, stream, ms_enc, ms_lago, opts);
+  return phf::high_level<E>::HFR_PBK_encode(
+      buf, in, len, out, outlen, header, stream, codec, ms_enc, ms_lago, opts);
+}
+
+template <typename E>
 void hf_run(
     Arguments const& args, size_t len, HFVariant const& v, int reduce,
     E const* preloaded_h_data = nullptr)
@@ -369,8 +381,7 @@ void hf_run(
     memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen, stream);
     sync_by_stream(stream);
     if (v.codec == psz_codec::HFR_V3)
-      memcpy_allkinds_async<D2D>(buf->hist_d(), d_hist.get(), bklen, stream),
-          phf::high_level<E>::HFR_pick_pbk(buf.get(), bklen, len, stream);
+      phf::high_level<E>::HFR_pick_pbk(buf.get(), d_data.get(), len, bklen, stream);
     else {
       // force runtime Radius to the book's minimum depth
       if (v.is_hfr_family and bklen > psz::HFR_PBK_Constants::Radius) {
@@ -420,8 +431,8 @@ void hf_run(
           size_t t_len = 0;
           phf_header t_header{};
           float t_enc = 0.0f, t_lago = 0.0f;
-          phf::high_level<E>::HFR_encode(
-              buf.get(), d_data.get(), len, &t_encoded, &t_len, t_header, stream, v.codec, &t_enc,
+          hfr_encode<E>(
+              v.codec, buf.get(), d_data.get(), len, &t_encoded, &t_len, t_header, stream, &t_enc,
               &t_lago, HFR_Opts{rt, args.magnitude, args.blockdim});
           sync_by_stream(stream);
           fprintf(stderr, "[best-rmerge] r%d encoded_len=%zu\n", rt, t_len);
@@ -451,8 +462,8 @@ void hf_run(
     t.start(stream);
     float ms_enc_p = 0.0f, ms_lago_p = 0.0f;
     if (v.is_hfr_family)
-      phf::high_level<E>::HFR_encode(
-          buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
+      hfr_encode<E>(
+          v.codec, buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream,
           &ms_enc_p, &ms_lago_p, HFR_Opts{reduce, args.magnitude, args.blockdim});
     else
       phf::high_level<E>::HF_encode(

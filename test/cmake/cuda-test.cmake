@@ -20,7 +20,7 @@ target_link_libraries(zigzag PRIVATE psz_cu_test_compile_settings)
 add_test(test_zigzag zigzag)
 
 add_executable(module src/test_module.cc)
-target_link_libraries(module PRIVATE psz_cu_test_compile_settings)
+target_link_libraries(module PRIVATE psz_cu_test_compile_settings PHF::phf_cu)
 add_test(test_module module)
 
 # Level-1 subroutine
@@ -116,6 +116,17 @@ target_link_libraries(test_iterative_reuse
 )
 add_test(test_iterative_reuse test_iterative_reuse)
 set_tests_properties(test_iterative_reuse PROPERTIES RESOURCE_LOCK gpu)
+
+add_executable(test_single_symbol src/test_single_symbol.cc)
+set_source_files_properties(src/test_single_symbol.cc PROPERTIES LANGUAGE CUDA)
+target_link_libraries(test_single_symbol
+  PRIVATE
+  psz_cu_test_compile_settings
+  cusz
+  CUDA::cudart
+)
+add_test(test_single_symbol test_single_symbol)
+set_tests_properties(test_single_symbol PROPERTIES RESOURCE_LOCK gpu)
 
 add_executable(test_hfd26_fused src/test_hfd26_fused.cc)
 target_link_libraries(test_hfd26_fused

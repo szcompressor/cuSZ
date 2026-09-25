@@ -7,7 +7,7 @@
 #include <tuple>
 
 #include "c_type.h"
-#include "stat.h"
+#include "cusz/type.h"
 
 // Type alias for runtime enum
 using psz_runtime = _ptb_runtime;

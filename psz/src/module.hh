@@ -3,6 +3,7 @@
 
 #include "component.hh"
 #include "cusz/type.h"
+#include "hf_hl.hh"
 
 namespace psz::_2609 {
 
@@ -33,18 +34,6 @@ constexpr bool is_lc(psz_codec c)
 
 constexpr bool is_spline(psz_predictor p) { return p == SplineY24 or p == SplineY25; }
 
-constexpr bool needs_book(psz_codec c)
-{
-  switch (c) {
-    case HF:
-    case HF_r2:
-    case HFR:
-    case HFR_V3:
-    case HFR_V4: return true;
-    default: return false;
-  }
-}
-
 constexpr bool unpred_localized(psz_codec c)
 {
   switch (c) {
@@ -60,6 +49,7 @@ constexpr bool unpred_localized(psz_codec c)
 constexpr bool unpred_spill(psz_codec c)
 {
   switch (c) {
+    case CodecNull:
     case HF:
     case HF_r2:
     case FZG:
@@ -173,7 +163,7 @@ constexpr psz_ppl compose(psz_predictor p1, psz_codec c1, psz_codec optional_c2)
 
   if (optional_c2 == LC_TCMS) ppl.codec2 = is_lc(c1) ? LC_BITR : LC_RTR;
 
-  ppl.hist = needs_book(ppl.codec1) ? HistGeneric : HistNull;
+  ppl.hist = phf::needs_book(ppl.codec1) ? HistGeneric : HistNull;
 
   return ppl;
 }
@@ -214,9 +204,9 @@ constexpr psz_ppl pipeline_of(psz_preset p)
   return ppl;
 }
 
-constexpr bool needs_eq4(psz_ppl p)
+constexpr bool needs_eq4(psz_codec codec1)
 {
-  switch (p.codec1) {
+  switch (codec1) {
     case HFR:
     case HFR_PBKC:
     case HFR_PBKGO:
@@ -225,6 +215,8 @@ constexpr bool needs_eq4(psz_ppl p)
     default: return false;
   }
 }
+
+constexpr bool needs_eq4(psz_ppl p) { return needs_eq4(p.codec1); }
 
 constexpr int radius_of(psz_ppl p) { return needs_eq4(p) ? 128 : 512; }
 

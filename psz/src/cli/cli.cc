@@ -11,6 +11,7 @@
 #include <string>
 
 #include "cusz.h"
+#include "viewer.hh"
 #include "executor.hh"
 #include "query.hh"
 #include "utils/format.hh"

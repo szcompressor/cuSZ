@@ -10,6 +10,7 @@
 #include "hfr-pbk.hh"
 #include "hfr-pbk_decoder.hh"
 #include "hfr.hh"
+#include "hist.hh"
 #include "mem/cxx_backends.h"
 
 #define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
@@ -643,12 +644,32 @@ int high_level<E>::HF_build_book(
 // HFR-v3 book source: pick one global PBK book from the histogram, on the GPU.
 template <typename E>
 int high_level<E>::HFR_pick_pbk(
-    phf::Buf<E>* buf, u2 const bklen, size_t const len, hf_stream_t stream)
+    phf::Buf<E>* buf, E* in, size_t const len, u2 const bklen, hf_stream_t stream, psz_hist hist)
 {
+  histogram(buf, in, len, bklen, stream, hist);
   phf::module::HFR_pick_pbk(
       buf->hist_d(), (u4)bklen, len, buf->pbk_book_d(), buf->book_d(), buf->pick_encid_d(),
       stream);
   return 0;
+}
+
+template <typename E>
+int high_level<E>::histogram(
+    phf::Buf<E>* buf, E* in, size_t const len, u2 const bklen, hf_stream_t stream, psz_hist hist)
+{
+  if (hist == HistSp)
+    return psz::module::GPU_histogram_Cauchy<E>::kernel(in, len, buf->hist_d(), bklen, stream);
+  return psz::module::GPU_histogram_generic<E>::kernel(
+      in, len, buf->hist_d(), bklen, buf->hist_generic_grid_dim(), buf->hist_generic_block_dim(),
+      buf->hist_generic_shmem_use(), buf->hist_generic_repeat(), stream);
+}
+
+template <typename E>
+int high_level<E>::make_book(
+    phf::Buf<E>* buf, E* in, size_t const len, u2 const bklen, hf_stream_t stream, psz_hist hist)
+{
+  histogram(buf, in, len, bklen, stream, hist);
+  return HF_build_book(buf, bklen, stream);
 }
 
 template <typename E>
@@ -683,7 +704,19 @@ int high_level<E>::HF_decode(
 }
 
 template <typename E>
-int high_level<E>::HFR_encode(
+int high_level<E>::HFR_RTBK_encode(
+    Buf<E>* buf, E* in, size_t const len, u1** out, size_t* outlen, phf_header& header,
+    hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
+{
+  if (not buf->set_inlen(len, false)) return PHF_FAIL_GPU_OUT_OF_MEMORY;
+  buf->set_use_pbkgo(false);
+  buf->set_use_global_encid(false);
+  return dispatch::encode_hfr_v2<E>(
+      buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
+}
+
+template <typename E>
+int high_level<E>::HFR_PBK_encode(
     Buf<E>* buf, E* in, size_t const len, u1** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago,
     HFR_Opts opts)
@@ -692,9 +725,6 @@ int high_level<E>::HFR_encode(
   buf->set_use_pbkgo(false);
   buf->set_use_global_encid(false);
   switch (variant) {
-    case HFR:
-      return dispatch::encode_hfr_v2<E>(
-          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
     case HFR_PBKC:
       return dispatch::encode_hfr_pbkc<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
@@ -707,7 +737,6 @@ int high_level<E>::HFR_encode(
     case HFR_V4:
       return dispatch::encode_hfr_v4<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
-    case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
     default: return PHF_NOT_IMPLEMENTED;
   }
 }

@@ -79,6 +79,10 @@ struct Buf {
   auto timing_event(int idx) const -> void*;    // 3 reusable cudaEvent_t vars
   auto pbkgo_max_blocks_per_sm() const -> int;  // PBKGO: occupancy, computed at init.
   auto pbkgo_max_resident_blocks() const -> int;
+  auto hist_generic_grid_dim() const -> int;
+  auto hist_generic_block_dim() const -> int;
+  auto hist_generic_shmem_use() const -> int;
+  auto hist_generic_repeat() const -> int;
 
   // getter: arrays
   H4* book_d() const;

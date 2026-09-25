@@ -12,7 +12,7 @@
 #include "context_impl.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
-#include "cusz_rev1.h"
+#include "cusz.h"
 #include "detail/check.hh"
 #include "detail/kv_parse.hh"
 #include "detail/str2num.hh"
@@ -21,6 +21,7 @@
 #include "utils/busyheader.hh"
 #include "utils/demangle.hh"
 #include "utils/format.hh"
+#include "viewer.hh"
 
 using psz::_2609::compose;
 using std::cerr;
@@ -32,8 +33,8 @@ namespace psz {
 #if defined(PSZ_USE_CUDA)
 
 const char* BACKEND_TEXT = "cuSZ";
-const char* VERSION_TEXT = "2026-09-17 (0.19)";
-const int   VERSION      = 20260917;
+const char* VERSION_TEXT = "2026-09-24 (0.19)";
+const int   VERSION      = 20260924;
 
 #elif defined(PSZ_USE_1API)
 
@@ -135,7 +136,6 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
   .flag("dbg",        {"--dbg"})
   .flag("hfd26",      {"--hfd26"},                   "decode HFR-family archives with HFD26 (the default; stating it is a no-op)")
-  .flag("hfd_coarse", {"--hfd-coarse"},              "force the coarse one-thread-per-chunk decoder (HFR_coarse); HF and HF-rev2 are always coarse")
   ;
 // clang-format on
 
@@ -189,10 +189,6 @@ static bool codec_from_name(string const& v, psz_codec& out)
     out = psz_codec::HF_r2;  // HF_r2 supersedes HF
   else if (v == "hfr-v2" or v == "hfr-conservative")
     out = psz_codec::HFR;
-  else if (v == "hfr-v3" or v == "hfr-direct") {
-    cerr << LOG_ERR << "hfr-v3 is not selectable; use hfr-v4" << endl;
-    exit(1);
-  }
   else if (v == "hfr-v4")
     out = psz_codec::HFR_V4;
   else if (v == "hfr-pbkc" or v == "hfr-pbk-compat" or v == "pbkc")
@@ -212,6 +208,63 @@ static bool codec_from_name(string const& v, psz_codec& out)
   else
     return false;
   return true;
+}
+
+char const* pszctx_pipeline_from_name(char const* name, psz_ppl* out)
+{
+  static thread_local string err;
+  auto                       fail = [](string e) {
+    err = std::move(e);
+    return err.c_str();
+  };
+  auto no_codec = [&](string const& c) {
+    if (c == "hfr-v3" or c == "hfr-direct") return fail("hfr-v3 is not selectable; use hfr-v4");
+    return fail("no such codec: " + c);
+  };
+
+  string     v            = name;
+  // a trailing ".." says the stages not named take their defaults, so a
+  // caller can give just the predictor without knowing what follows it
+  bool const rest_default = v.size() > 2 and v.compare(v.size() - 2, 2, "..") == 0;
+  if (rest_default) v.erase(v.size() - 2);
+
+  std::vector<string> stage;
+  _ptb::detail::parse_strlist(v.c_str(), stage);
+
+  if (rest_default and not stage.empty() and stage[0].rfind("preset:", 0) == 0)
+    return fail("a preset already names every stage; drop the \"..\"");
+
+  // ".." fills the stages left unnamed
+  if (rest_default) {
+    if (stage.size() == 1) stage.push_back("_");
+    if (stage.size() == 2) stage.push_back("none");
+  }
+
+  if (stage.size() == 1 and stage[0].rfind("preset:", 0) == 0) {
+    auto const preset_name = stage[0].substr(7);
+    psz_preset preset;
+    if (preset_name == "_" or preset_name == "*" or preset_name == "default")
+      *out = compose(DEFAULT_PREDICTOR, DEFAULT_CODEC, psz_codec::CodecNull);
+    else if (preset_from_name(preset_name, preset))
+      *out = psz::_2609::pipeline_of(preset);
+    else
+      return fail("no such preset: " + preset_name);
+    return nullptr;
+  }
+  if (stage.size() != 2 and stage.size() != 3)
+    return fail("--pipeline takes p1,c1[,c2] or preset:<name>");
+
+  psz_predictor p1;
+  psz_codec     c1, c2 = psz_codec::CodecNull;
+  if (not predictor_from_name(stage[0], p1)) return fail("no such predictor: " + stage[0]);
+  if (not codec_from_name(stage[1], c1)) return no_codec(stage[1]);
+  if (stage.size() == 3) {
+    if (stage[2] == "_" or stage[2] == "*" or stage[2] == "default")  // no default pass 2
+      return fail("no default pass 2; name lc-bitr or lc-rtr");
+    if (not codec_from_name(stage[2], c2)) return no_codec(stage[2]);
+  }
+  *out = compose(p1, c1, c2);
+  return nullptr;
 }
 
 static char const* predictor_name(psz_predictor p)
@@ -300,15 +353,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     }
   }
 
-  // histogram
-  {
-    auto _v = args.get<string>("hist");
-    if (_v == "generic")
-      ctx->header->pipeline.hist = psz_hist::HistGeneric;
-    else if (_v == "sparse")
-      ctx->header->pipeline.hist = psz_hist::HistSp;
-  }
-
   // Hi-mode config (--hi-config key=val,...)
   if (args.is_set("config"))
     hi_binder.bind(args.get<string>("config").c_str(), *CLI_interp_params(ctx));
@@ -351,64 +395,15 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
         exit(1);
       }
 
-      // a trailing ".." says the stages not named take their defaults, so a
-      // caller can give just the predictor without knowing what follows it
-      bool const rest_default = _v.size() > 2 and _v.compare(_v.size() - 2, 2, "..") == 0;
-      if (rest_default) _v.erase(_v.size() - 2);
-
-      std::vector<string> stage;
-      parse_strlist(_v.c_str(), stage);
-
-      if (rest_default and not stage.empty() and stage[0].rfind("preset:", 0) == 0) {
-        cerr << LOG_ERR << "a preset already names every stage; drop the \"..\"" << endl;
+      psz_ppl ppl;
+      if (auto const err = pszctx_pipeline_from_name(_v.c_str(), &ppl)) {
+        cerr << LOG_ERR << err << endl;
         exit(1);
       }
-
-      // ".." fills the stages left unnamed
-      if (rest_default) {
-        if (stage.size() == 1) stage.push_back("_");
-        if (stage.size() == 2) stage.push_back("none");
-      }
-
-      if (stage.size() == 1 and stage[0].rfind("preset:", 0) == 0) {
-        auto const name = stage[0].substr(7);
-        psz_preset preset;
-        if (name == "_" or name == "*" or name == "default")
-          ctx->header->pipeline =
-              compose(DEFAULT_PREDICTOR, DEFAULT_CODEC, psz_codec::CodecNull);
-        else if (preset_from_name(name, preset))
-          apply_preset(ctx, preset);
-        else {
-          cerr << LOG_ERR << "no such preset: " << name << endl;
-          exit(1);
-        }
-      }
-      else if (stage.size() == 2 or stage.size() == 3) {
-        psz_predictor p1;
-        psz_codec     c1, c2 = psz_codec::CodecNull;
-        if (not predictor_from_name(stage[0], p1)) {
-          cerr << LOG_ERR << "no such predictor: " << stage[0] << endl;
-          exit(1);
-        }
-        if (not codec_from_name(stage[1], c1)) {
-          cerr << LOG_ERR << "no such codec: " << stage[1] << endl;
-          exit(1);
-        }
-        if (stage.size() == 3) {
-          if (stage[2] == "_" or stage[2] == "*" or stage[2] == "default") {  // no default pass 2
-            cerr << LOG_ERR << "no default pass 2; name lc-bitr or lc-rtr" << endl;
-            exit(1);
-          }
-          if (not codec_from_name(stage[2], c2)) {
-            cerr << LOG_ERR << "no such codec: " << stage[2] << endl;
-            exit(1);
-          }
-        }
-        ctx->header->pipeline = compose(p1, c1, c2);
-      }
-      else {
-        cerr << LOG_ERR << "--pipeline takes p1,c1[,c2] or preset:<name>" << endl;
-        exit(1);
+      ctx->header->pipeline = ppl;
+      if (_v.rfind("preset:", 0) == 0) {
+        ctx->header->radius = psz::_2609::radius_of(ppl);
+        ctx->bklen          = ctx->header->radius * 2;
       }
     }
   }
@@ -425,6 +420,15 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     }
   }
 
+  // histogram
+  {
+    auto _v = args.get<string>("hist");
+    if (_v == "generic")
+      ctx->header->pipeline.hist = psz_hist::HistGeneric;
+    else if (_v == "sparse")
+      ctx->header->pipeline.hist = psz_hist::HistSp;
+  }
+
   // task flags (subcommand has priority over -z/-x)
   if (not ctx->cli->task_reduction and not ctx->cli->task_reconstruction) {
     if (args.get<bool>("compress")) ctx->cli->task_reduction = true;
@@ -434,12 +438,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   if (args.get<bool>("verbose")) ctx->cli->verbose = true;
   if (args.get<bool>("dbg")) setenv("PSZ_DBG", "1", 1);
   if (args.get<bool>("hfd26")) ctx->cli->use_hfd26 = true;
-  if (args.get<bool>("hfd_coarse")) ctx->cli->use_hfd_coarse = true;
-  if (ctx->cli->use_hfd26 and ctx->cli->use_hfd_coarse) {
-    cerr << LOG_ERR << "--hfd26 and --hfd-coarse select different decoders; pass at most one"
-         << endl;
-    exit(1);
-  }
 
   // HFR reduce-merge pass count (--rmerge-count): 2|3|4; encode-only.
   // 0 means the flag was not given, and each codec keeps its own default.
@@ -512,8 +510,10 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     }
   }
 
+  auto const hist       = ctx->header->pipeline.hist;
   ctx->header->pipeline = compose(
       ctx->header->pipeline.predictor, ctx->header->pipeline.codec1, ctx->header->pipeline.codec2);
+  ctx->header->pipeline.hist = hist;
 
   if (not psz::_2609::valid(ctx->header->pipeline)) {
     cerr << LOG_ERR << "unsupported pipeline: " << predictor_name(ctx->header->pipeline.predictor)
@@ -591,7 +591,6 @@ psz_ctx* pszctx_default_values()
               .report_cr           = false,
               .verbose             = false,
               .use_hfd26           = false,
-              .use_hfd_coarse      = false,
               .hfr_rmerge_count    = 0,
           },
       .bklen      = 1024,

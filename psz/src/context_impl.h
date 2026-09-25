@@ -40,7 +40,6 @@ struct psz_cli_config {
   bool verbose;
 
   bool use_hfd26;
-  bool use_hfd_coarse;
 
   int hfr_rmerge_count;
 };
@@ -53,11 +52,6 @@ struct psz_context {
 
   uint16_t bklen;
   size_t len_linear;
-
-  bool use_eq4;
-
-  uint8_t* d_archive = nullptr;
-  size_t archive_capacity = 0;
 };
 
 
@@ -72,6 +66,7 @@ void pszctx_set_len(psz_ctx* ctx, psz_len3 len);
 #define get_len3 pszctx_get_len3
 psz_len3 pszctx_get_len3(psz_ctx* ctx);
 void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv);
+char const* pszctx_pipeline_from_name(char const* name, psz_ppl* out);
 
 unsigned int CLI_x(psz_ctx* args);
 unsigned int CLI_y(psz_ctx* args);

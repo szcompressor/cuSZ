@@ -54,7 +54,7 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
         DefaultLinBlkSz>  //
         <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
             eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
-            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
+            data_leap, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
   }
   else {
     auto grid_dim = dim3(div(extent.x, Blk16), div(extent.y, Blk16), div(extent.z, Blk16));
@@ -62,7 +62,7 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
         E, T, FP, 4, SplDim3, Blk16, Blk16, Blk16, 1, 1, 1, DefaultLinBlkSz>  //
         <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
             eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
-            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
+            data_leap, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
   }
 
   cudaStreamSynchronize((cudaStream_t)stream);

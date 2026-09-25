@@ -80,7 +80,8 @@ size_t set_outlier_tail_elems(psz_len l, bool y25, size_t eq_len)
 size_t eq_bytes(psz_len l, bool y25, size_t eq, bool eq4)
 {
   bool const tile_nd = ndim(l) >= 2;
-  size_t const u2_bytes = (eq + (tile_nd ? set_outlier_tail_elems<u2>(l, y25, eq) : 0)) * sizeof(u2);
+  size_t const u2_bytes =
+      (eq + (tile_nd ? set_outlier_tail_elems<u2>(l, y25, eq) : 0)) * sizeof(u2);
   size_t const u4_bytes = eq4 ? (eq + set_outlier_tail_elems<u4>(l, y25, eq)) * sizeof(u4) : 0;
   return std::max(u2_bytes, u4_bytes);
 }
@@ -210,9 +211,7 @@ struct psz::Buf_Comp<T>::impl {
   psz_predictor predictor = SplineY25;
 
   // arrays
-  GPU_unique_dptr<T[]> d_decode_fused;
-  BYTE* wired_archive = nullptr;
-  BYTE* archive() const { return wired_archive ? wired_archive : (BYTE*)pool_archive.data(); }
+  BYTE* archive() const { return (BYTE*)pool_archive.data(); }
   GPU_unique_hptr<BYTE[]> h_compressed;
 
   std::unique_ptr<lrz_buf<T>> buf_lrz;
@@ -274,11 +273,6 @@ struct psz::Buf_Comp<T>::impl {
     bool const same =
         ppl.predictor == p.predictor and ppl.codec1 == p.codec1 and ppl.codec2 == p.codec2;
     if (bound and same) return true;
-    if (bound) {
-      if (bound_predict.state) memset_device((u1*)pool_predict.state(), bound_predict.state);
-      if (bound_encode1.state) memset_device((u1*)pool_encode1.state(), bound_encode1.state);
-      if (bound_encode2.state) memset_device((u1*)pool_encode2.state(), bound_encode2.state);
-    }
     stage_predict().assign({0, 0}, pool_predict.data(), pool_predict.state());
     stage_encode1(ppl_eq4).assign({0, 0}, pool_encode1.data(), pool_encode1.state());
     stage_encode2().assign({0, 0}, pool_encode2.data(), pool_encode2.state());
@@ -287,11 +281,11 @@ struct psz::Buf_Comp<T>::impl {
     return true;
   }
 
-  impl(psz_len _len, bool _is_comp, BYTE* external_archive, int _nstage, bool _eq4) :
+  impl(psz_len _len, bool _is_comp, int _nstage) :
       is_comp(_is_comp),
       nstage(_nstage),
-      eq4(_eq4 and _nstage >= 2),
-      archive_capacity(_is_comp ? Buf_Comp<T>::compressed_max_bytes(_len, _nstage, eq4) : 0),
+      eq4(_nstage >= 2),
+      archive_capacity(_is_comp ? Buf_Comp<T>::compressed_max_bytes(_len, _nstage) : 0),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
       len_top1(set_top1_nblk(_len))
@@ -310,9 +304,8 @@ struct psz::Buf_Comp<T>::impl {
     size_t encoded_in = 0, chunked_in_max = 0, decoded_max = rtr_input_max_bytes,
            decoded_max_eq4 = rtr_input_max_bytes_eq4;
     if (is_comp) {
-      wired_archive = external_archive;
       if (nstage >= 2) {
-        if (not wired_archive) pool_archive.allocate({archive_capacity, 0});
+        pool_archive.allocate({archive_capacity, 0});
         hf_archive_dst = archive() + psz::_2609::pad8(sizeof(psz_header));
         h_compressed = MAKE_UNIQUE_HOST(BYTE, archive_capacity);
       }
@@ -358,8 +351,7 @@ struct psz::Buf_Comp<T>::impl {
           mib(bound_encode2.state));
       printf(
           "  grand  1+2+3            data %8.2f MiB  state %8.3f MiB  archive %8.2f MiB\n",
-          mib(grand.data), mib(grand.state),
-          mib(is_comp and nstage >= 2 and not wired_archive ? archive_capacity : 0));
+          mib(grand.data), mib(grand.state), mib(archive_capacity));
     }
   }
 
@@ -372,12 +364,11 @@ struct psz::Buf_Comp<T>::impl {
 
 namespace psz {
 
-COMPBUF_IMPL()::Buf_Comp(
-    psz_len _len, bool _is_comp, BYTE* external_archive, int nstage, bool eq4) :
+COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp, int nstage) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
-    pimpl(std::make_unique<impl>(_len, _is_comp, external_archive, nstage, eq4))
+    pimpl(std::make_unique<impl>(_len, _is_comp, nstage))
 {
 }
 
@@ -387,21 +378,18 @@ COMPBUF_IMPL()::~Buf_Comp(){};
 
 COMPBUF_IMPL(void)::reset(void* stream)
 {
-  if (pimpl->top1()) memset_device_async(pimpl->top1(), pimpl->len_top1, 0, stream);
-  if (pimpl->pe()) memset_device_async(pimpl->pe(), spl_buf<T>::ERR_HISTO_LEN, 0, stream);
-  pimpl->buf_outlier2->reset_num(stream);
-  if (not pimpl->bound) return;
-  auto const reset_hf = [&](auto* hf) {
-    if (not hf) return;
-    if (hf->hist_d()) memset_device_async(hf->hist_d(), max_bklen, 0, stream);
-    hf->reset(stream);
+  auto const clear = [stream](_ptb::pool const& pool, _ptb::mem_plan::total const& bound) {
+    if (bound.state) memset_device_async((u1*)pool.state(), bound.state, 0, stream);
   };
-  if (psz::_2609::needs_eq4(pimpl->ppl))
-    reset_hf(pimpl->buf_hfr.get());
-  else {
-    if (pimpl->buf_fzg) pimpl->buf_fzg->reset(stream);
-    reset_hf(pimpl->buf_hf.get());
+  clear(pimpl->pool_predict, pimpl->bound_predict);
+  clear(pimpl->pool_encode1, pimpl->bound_encode1);
+  clear(pimpl->pool_encode2, pimpl->bound_encode2);
+  if (not pimpl->bound) return;
+  if (psz::_2609::needs_eq4(pimpl->ppl)) {
+    if (pimpl->buf_hfr) pimpl->buf_hfr->reset(stream);
   }
+  else if (pimpl->buf_hf)
+    pimpl->buf_hf->reset(stream);
 }
 
 COMPBUF_IMPL(void)::lc_wire_encoded(BYTE* external)
@@ -417,14 +405,8 @@ template <typename E>
 E* Buf_Comp<T>::eq_d() const
 { return pimpl->template eq<E>(); }
 COMPBUF_IMPL(psz_len)::eq_len3() const { return len; }
-COMPBUF_IMPL(T*)::decode_fused_d() const
-{ return pimpl->decode_fused() ? pimpl->decode_fused() : pimpl->d_decode_fused.get(); }
+COMPBUF_IMPL(T*)::decode_fused_d() const { return pimpl->decode_fused(); }
 COMPBUF_IMPL(size_t)::eq_len() const { return pimpl->eq_len(); }
-COMPBUF_IMPL(void)::alloc_decode_fused()  // FIXME: bin_pred reconstructs on a compress-side buf.
-{
-  if (not pimpl->decode_fused() and not pimpl->d_decode_fused)
-    pimpl->d_decode_fused = MAKE_UNIQUE_DEVICE(T, pimpl->eq_len());
-}
 using psz::OutlierCell;
 template <typename T>
 template <typename E>
@@ -447,7 +429,7 @@ COMPBUF_IMPL(BYTE*)::compressed_d() const { return pimpl->archive(); }
 COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }
 COMPBUF_IMPL(size_t)::compressed_max_bytes() const { return pimpl->archive_capacity; }
 
-COMPBUF_IMPL(size_t)::compressed_max_bytes(psz_len len, int nstage, bool eq4)
+COMPBUF_IMPL(size_t)::compressed_max_bytes(psz_len len, int nstage)
 {
   if (nstage < 2) return 0;
   size_t const len_linear = (size_t)len.x * len.y * len.z;
@@ -459,9 +441,8 @@ COMPBUF_IMPL(size_t)::compressed_max_bytes(psz_len len, int nstage, bool eq4)
   overhead = std::max(
       overhead,
       Buf_LC::encoded_capacity(hf_len * sizeof(u2), Buf_LC::needs_align8(LC_TCMS)) - u2_bytes);
-  if (eq4)
-    overhead = std::max(
-        overhead, Buf_HFR::archive_max_words(hf_len, max_bklen, true) * sizeof(u4) - u4_bytes);
+  overhead = std::max(
+      overhead, Buf_HFR::archive_max_words(hf_len, max_bklen, true) * sizeof(u4) - u4_bytes);
   overhead += _2609::pad8(sizeof(psz_header));
   overhead += spl_buf<T>::anchor_cap(len) * sizeof(T);
   overhead += (_2609::seg_pass1_end - _2609::seg_encoded) * (_2609::pad8(1) - 1);
@@ -533,10 +514,10 @@ COMPBUF_IMPL(Buf_FZG*)::buf_fzg() const { return pimpl->buf_fzg.get(); }
 template class psz::Buf_Comp<f4>;
 template class psz::Buf_Comp<f8>;
 
-#define BUF_COMP_EQ(T, E)                                              \
-  template E* psz::Buf_Comp<T>::eq_d<E>() const;                       \
+#define BUF_COMP_EQ(T, E)                                                   \
+  template E* psz::Buf_Comp<T>::eq_d<E>() const;                            \
   template psz::OutlierCell* psz::Buf_Comp<T>::block_outliers_d<E>() const; \
-  template u4* psz::Buf_Comp<T>::pbk_headers_d<E>() const;             \
+  template u4* psz::Buf_Comp<T>::pbk_headers_d<E>() const;                  \
   template u1* psz::Buf_Comp<T>::incomp_flag_d<E>() const;
 
 BUF_COMP_EQ(f4, u1)

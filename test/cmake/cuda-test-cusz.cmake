@@ -1,7 +1,7 @@
 # cusz CLI-driven ctest matrix.
 #
 # Parallel to cuda-test-bin_hf.cmake. Exercises the full compressor path
-# (psz_cusz_compressor -> phf::high_level::HFR_encode -> kernels) for each
+# (psz_cusz_compressor -> phf::high_level::HFR_{RTBK,PBK}_encode -> kernels) for each
 # (codec, dataset, eb) combo. Pass/fail = round-trip lossless within eb.
 #
 # Recipe (per row):

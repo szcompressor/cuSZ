@@ -65,10 +65,6 @@ struct Buf_Comp {
   const size_t len_linear;
 
   // encapsulations
-  int hist_generic_grid_dim;
-  int hist_generic_block_dim;
-  int hist_generic_shmem_use;
-  int hist_generic_repeat;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
   uint32_t nbyte[PSZ_ENC_PASS2_END];
@@ -76,9 +72,7 @@ struct Buf_Comp {
   psz_header* header_ref;
 
  public:
-  Buf_Comp(
-      psz_len len, bool _is_comp = true, BYTE* external_archive = nullptr, int nstage = 2,
-      bool eq4 = true);
+  Buf_Comp(psz_len len, bool _is_comp = true, int nstage = 2);
   ~Buf_Comp();
 
   bool select(psz_ppl ppl);
@@ -95,7 +89,6 @@ struct Buf_Comp {
   psz_len eq_len3() const;
   T* decode_fused_d() const;
   size_t eq_len() const;
-  void alloc_decode_fused();
   template <typename E>
   OutlierCell* block_outliers_d() const;
 
@@ -110,7 +103,7 @@ struct Buf_Comp {
   BYTE* compressed_d() const;
   BYTE* compressed_h() const;
   size_t compressed_max_bytes() const;
-  static size_t compressed_max_bytes(psz_len len, int nstage, bool eq4);
+  static size_t compressed_max_bytes(psz_len len, int nstage);
 
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;

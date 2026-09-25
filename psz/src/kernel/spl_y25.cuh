@@ -63,8 +63,8 @@ template <
     int LinBlkSz = DefaultLinBlkSz>
 __global__ void KCU_x_spl_infprecis_data(
     E* eq, dim3 eq_size, dim3 eq_leap, T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data,
-    dim3 data_size, dim3 data_leap, T* outlier_tmp, FP eb_r, FP ebx2, int radius,
-    INTERP_PARAMS intp_param, u1 const* incomp_flag = nullptr, T* fused_src = nullptr);
+    dim3 data_size, dim3 data_leap, FP eb_r, FP ebx2, int radius, INTERP_PARAMS intp_param,
+    u1 const* incomp_flag = nullptr, T* fused_src = nullptr);
 
 template <typename T>
 __global__ void reset_errors(T* errors);
@@ -1759,8 +1759,7 @@ __global__ void psz::KCU_x_spl_infprecis_data(
     T* data,           // output
     dim3 data_size,    //
     dim3 data_leap,    //
-    T* outlier_tmp, FP eb_r, FP ebx2, int radius, INTERP_PARAMS intp_param,
-    u1 const* incomp_flag, T* fused_src)
+    FP eb_r, FP ebx2, int radius, INTERP_PARAMS intp_param, u1 const* incomp_flag, T* fused_src)
 {
   __shared__ T s_data[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
                      [AncBlkSzX * NAncBlkX + (SplDim >= 1)];

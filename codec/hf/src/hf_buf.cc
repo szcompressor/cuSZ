@@ -10,6 +10,7 @@
 #include "hf.h"
 #include "hfd26.hh"
 #include "hfr.hh"
+#include "hist.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 #include "mem/gpu_event.hh"
@@ -72,6 +73,10 @@ struct Buf<E>::impl : _ptb::buf_base {
   int num_sms;
   int pbkgo_max_blocks_per_sm;
   int pbkgo_max_resident_blocks;
+  int hist_generic_grid_dim = 0;
+  int hist_generic_block_dim = 0;
+  int hist_generic_shmem_use = 0;
+  int hist_generic_repeat = 0;
 
   // clang-format off
   enum : int {
@@ -203,6 +208,10 @@ struct Buf<E>::impl : _ptb::buf_base {
     pbkgo_max_blocks_per_sm =
         phf::module::HFR_PBKGO_encode<SYM, 10, 2, uint32_t, 128>::max_blocks_per_sm();
     pbkgo_max_resident_blocks = pbkgo_max_blocks_per_sm * num_sms;
+    if (is_comp)
+      psz::module::GPU_histogram_generic<SYM>::init(
+          inlen, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+          hist_generic_repeat);
 
     this->use_sublen_1ki = use_sublen_1ki;
     sublen = tune_sublen(inlen, use_HFR, use_sublen_1ki);
@@ -439,6 +448,10 @@ PHF_BUF_DEF(u2)::rt_bklen() const { return pimpl->rt_bklen; }
 PHF_BUF_DEF(int)::num_sms() const { return pimpl->num_sms; }
 PHF_BUF_DEF(int)::pbkgo_max_blocks_per_sm() const { return pimpl->pbkgo_max_blocks_per_sm; }
 PHF_BUF_DEF(int)::pbkgo_max_resident_blocks() const { return pimpl->pbkgo_max_resident_blocks; }
+PHF_BUF_DEF(int)::hist_generic_grid_dim() const { return pimpl->hist_generic_grid_dim; }
+PHF_BUF_DEF(int)::hist_generic_block_dim() const { return pimpl->hist_generic_block_dim; }
+PHF_BUF_DEF(int)::hist_generic_shmem_use() const { return pimpl->hist_generic_shmem_use; }
+PHF_BUF_DEF(int)::hist_generic_repeat() const { return pimpl->hist_generic_repeat; }
 PHF_BUF_DEF(bool)::set_inlen(size_t inlen, bool use_sublen_1ki)
 { return pimpl->set_inlen(inlen, use_sublen_1ki); }
 PHF_BUF_DEF(size_t)::sublen() const { return pimpl->sublen; }

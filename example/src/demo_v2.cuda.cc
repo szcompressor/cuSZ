@@ -25,11 +25,12 @@ void f4demo_compress_v2(
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_init(
-      F4, len3, {predictor, DEFAULT_HISTOGRAM, HF, CodecNull}, stream);
+  auto m = psz_compress_init(F4, len3, stream);
 
-  psz_compress_float(
-      m, {mode, eb}, f4d_uncomp, header, &d_internal_compressed, compressed_len);
+  auto abs_eb = eb;
+  if (mode == Rel) abs_eb *= psz_compress_extrema_float(m, f4d_uncomp).rng;
+  psz_compress_process_float(m, {predictor, DEFAULT_HISTOGRAM, HF, CodecNull}, abs_eb, f4d_uncomp);
+  psz_compress_archive(m, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);
@@ -43,11 +44,13 @@ void f8demo_compress_v2(
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_init(
-      F8, len3, {predictor, DEFAULT_HISTOGRAM, HF, NULL_CODEC}, stream);
+  auto m = psz_compress_init(F8, len3, stream);
 
-  psz_compress_double(
-      m, {mode, eb}, f8d_uncomp, header, &d_internal_compressed, compressed_len);
+  auto abs_eb = eb;
+  if (mode == Rel) abs_eb *= psz_compress_extrema_double(m, f8d_uncomp).rng;
+  psz_compress_process_double(
+      m, {predictor, DEFAULT_HISTOGRAM, HF, NULL_CODEC}, abs_eb, f8d_uncomp);
+  psz_compress_archive(m, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);
@@ -58,15 +61,15 @@ void f8demo_compress_v2(
 
 void f4demo_decompress_v2(psz_header* header, uint8_t* compressed, cudaStream_t stream)
 {
-  auto m = psz_init_from_header(header, stream);
-  psz_decompress_float(m, compressed, pszheader_compressed_bytes(header), f4d_decomp);
+  auto m = psz_decompress_init(header, stream);
+  psz_decompress_process_float(m, compressed, pszheader_compressed_bytes(header), f4d_decomp);
   psz_free(m);
 }
 
 void f8demo_decompress_v2(psz_header* header, uint8_t* compressed, cudaStream_t stream)
 {
-  auto m = psz_init_from_header(header, stream);
-  psz_decompress_double(m, compressed, pszheader_compressed_bytes(header), f8d_decomp);
+  auto m = psz_decompress_init(header, stream);
+  psz_decompress_process_double(m, compressed, pszheader_compressed_bytes(header), f8d_decomp);
   psz_free(m);
 }
 

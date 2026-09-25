@@ -23,28 +23,46 @@ typedef _ptb_stream_t psz_stream_t;
 typedef _ptb_mem_control psz_mem_control;
 typedef _ptb_dtype psz_dtype;
 typedef _ptb_len3 psz_len3;
-// psz_data_summary now defined in stat.h
 
-// Currently, 3D is the highest supported dimention.
+typedef struct psz_data_summary {
+  double min, max, rng, std, avg;
+} psz_data_summary;
+
+typedef struct psz_stats {
+  psz_data_summary odata, xdata;
+  struct {
+    double PSNR, MSE, NRMSE, coeff;
+  } score;
+  struct {
+    double abs, rel, pwrrel;
+    size_t idx;
+  } max_err;
+  struct {
+    double lag_one, lag_two;
+  } autocor;
+  double user_eb;
+  size_t len;
+} psz_stats;
+
 typedef psz_len3 psz_len;
 
 #define CUSZ_SUCCESS PSZ_SUCCESS
 
 typedef enum {
-  PSZ_SUCCESS,
-  PSZ_WARN_RADIUS_TOO_LARGE,
-  PSZ_WARN_OUTLIER_TOO_MANY,
-  PSZ_ABORT_UNSUPPORTED_TYPE,
-  PSZ_ABORT_UNSUPPORTED_DIMENSION,
-  PSZ_ABORT_NOT_IMPLEMENTED,
-  PSZ_ABORT_NO_SUCH_PREDICTOR,
-  PSZ_ABORT_NO_SUCH_CODEC,
-  PSZ_ABORT_TOO_MANY_UNPREDICTABLE,
-  PSZ_ABORT_TOO_MANY_ENC_BREAK,
-  PSZ_ABORT_COMPRESSED_TOO_LARGE,
-  PSZ_ABORT_UNSUPPORTED_PIPELINE,
-} psz_error_status;
-typedef psz_error_status pszerror;
+  PSZ_SUCCESS = 0,
+  // PSZ_WARN_RADIUS_TOO_LARGE = 1,
+  PSZ_WARN_OUTLIER_TOO_MANY = 2,
+  PSZ_ABORT_UNSUPPORTED_TYPE = 3,
+  PSZ_ABORT_UNSUPPORTED_DIMENSION = 4,
+  PSZ_ABORT_NOT_IMPLEMENTED = 5,
+  // PSZ_ABORT_NO_SUCH_PREDICTOR = 6,
+  PSZ_ABORT_NO_SUCH_CODEC = 7,
+  // PSZ_ABORT_TOO_MANY_UNPREDICTABLE = 8,
+  // PSZ_ABORT_TOO_MANY_ENC_BREAK = 9,
+  PSZ_ABORT_COMPRESSED_TOO_LARGE = 10,
+  PSZ_ABORT_UNSUPPORTED_PIPELINE = 11,
+} psz_errno;
+typedef psz_errno pszerror;
 
 const char* psz_error_string(int e);
 
@@ -69,12 +87,12 @@ typedef enum { Lorenzo = 0, LorenzoZigZag = 1, SplineY25 = 2, SplineY24 = 3 } ps
 // HFR-PBKC:  -c1 hfr-pbkc (default)
 // HFR-PBKGO: -c1 hfr-pbkgo
 typedef enum {
-  HF = 0, HF_r2 = 1,
-  HFR = 2, HFR_V2 = 3, HFR_V3 = 4, HFR_V4 = 5,
-  HFR_PBKC = 6, HFR_PBKGO = 7, HFR_PBKF = 8,
-  LC_TCMS = 9, LC_DRH = 10, LC_BITR = 13, LC_RTR = 14,
-  FZG = 11,
-  CodecNull = 99
+  CodecNull = 0,
+  HF = 1, HF_r2 = 2,
+  HFR = 3, HFR_V2 = 4, HFR_V3 = 5, HFR_V4 = 6,
+  HFR_PBKC = 7, HFR_PBKGO = 8, HFR_PBKF = 9,
+  LC_TCMS = 10, LC_DRH = 11, LC_BITR = 14, LC_RTR = 15,
+  FZG = 12
 } psz_codec;
 typedef enum { HistGeneric, HistSp, HistNull } psz_hist;
 // clang-format on
@@ -99,11 +117,6 @@ typedef enum {
   PSZ_PRESET_HITP,     // spline, LC_TCMS, LC_BITR
   PSZ_PRESET_HITP_R1,  // spline, LC_DRH, LC_BITR
 } psz_preset;
-
-typedef struct psz_runtime_config2 {
-  psz_mode mode;
-  double eb;
-} psz_rc2;
 
 struct psz_context;
 typedef struct psz_context psz_ctx;

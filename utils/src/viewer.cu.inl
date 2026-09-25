@@ -17,7 +17,7 @@ void GPU_evaluate_quality_and_print(T* xdata, T* odata, size_t len, size_t comp_
   auto stat_auto_lag2 = new psz_stats;
   psz::analysis::assess_quality<P, T>(stat_auto_lag2, odata, odata + 2, len - 2);
 
-  psz::analysis::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
+  psz::analysis::print_metrics_auto(&stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
