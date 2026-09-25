@@ -82,6 +82,18 @@ int main(int argc, char** argv)
   auto ok = test_hf_cpu_codebook(freq, bklen, argc < 3);
   printf("[%s] CPU serial HF codebook (bklen=%d)\n", ok ? "PASS" : "FAIL", bklen);
 
+  if (argc < 3) {
+    auto lone = new u4[bklen]();
+    lone[bklen / 2] = 1 << 20;
+    auto const ok_lone = test_hf_cpu_codebook(lone, bklen);
+    if (ok_lone)
+      printf("[PASS] CPU serial HF codebook, one symbol (bklen=%d)\n", bklen);
+    else
+      printf("[FAIL] CPU serial HF codebook, one symbol (bklen=%d)\n", bklen);
+    ok = ok and ok_lone;
+    delete[] lone;
+  }
+
   delete[] freq;
   return ok ? 0 : 1;
 }

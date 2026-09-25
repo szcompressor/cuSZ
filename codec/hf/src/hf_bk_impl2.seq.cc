@@ -19,6 +19,11 @@ void phf_CPU_build_codebook_v2(u4* freq, size_t const bklen, H* book)
     auto f = freq[i];
     if (f != 0) pq.push(new phf_node(i, f));
   }
+  if (pq.size() == 1) {
+    u4 other = 0;
+    if (pq.top()->symbol == 0) other = 1;
+    pq.push(new phf_node(other, 1));
+  }
 
   while (pq.size() != 1) {
     phf_node* left = pq.top();
