@@ -1,88 +1,217 @@
-June, 2021
+v0.19, 260924
 
-feature		spline3d kernel for seismic RTM data
+feature     update C API `cusz.h`: (de)compress init, extrema, process, archive, reset
+feature     1/2/3-stage pipeline specification
+feature     py-`psz`: pip-installable pybinding (nanobind)
+refactor    regroup `phf` with histogram and book making
+refactor    decrease overall memory footprint
+fix         corner-case zero-bit in HF with extremely large eb's
+fix         `CMAKE_CUDA_ARCHITECTURES` default to `sm_75`
 
-May, 2021
+v0.18, 260913
 
-feature		alternative compression path: RLE and sparsity-gather
+feature     faster HF decoder (HFD26), on by default
+feature     reorgnize `PredictorFeature`, `Types`, and tiling across stages
+feature     LC-DRH component (compress and decompress)
+refactor    HFR exposes presets 'a' and 'b'
+refactor    decrease HF memory footprint
+refactor    histogram skips out-of-range symbols
+refactor    all codecs use `_future::bheader`
+fix         bitfield race with full `u4` ops
+fix         canonical book: round-to-nearest
+fix         `lrz-zz` + FZG-codec path
 
-April, 2021
+v0.17.3, 260619
 
-optimize	Lorenzo construction and reconstruction; scale to A100
-optmize		fast mode, using all `float32`
+fix         PBKGO: exclude rmerge-count=1
 
-March, 2021
+v0.17.2, 260612
 
-optmize		coarsen thread-block use
+feature     set compressor defaults
 
-February, 2021
+v0.17.1, 260608
 
-feature		partial-sum based Lorenzo decompression
-optmize		Huffman encoding output inverse-proportional to compression ratio
+refactor    add view to kernel entry points
+refactor    `_portable` -> `_ptb`
+fix         revive spl-y24 pipeline
 
-January, 2021
+v0.17, 260605
 
-document 	update benchmark
+feature     add HFR (Huffman ReVISIT) encoding family; enabled in compressor
+refactor    eradicate HIP-related setup (CUDA-only)
+refactor    `Types`-`Features` split in pipeline descrption
+fix         CUDA13-specific device-info query
+fix         shmem leak caused by `0*NaN=NaN`
+fix         outlier overflow; rel-mode; `GPU_identical` launch config; UB fix
 
-December, 2020
+v0.16.2, 250221
 
-feature		add `nvcomp`
+feature     add 32x32 LRZ-2D kernel
+feature     output stat for Lorenzo predictors
 
-November, 2020
+v0.16.1, 250209
 
-October, 2020
+fix         performance scaling issue when outliers present 
 
-September, 2020
-feature		decouple zip and unzip
-deploy		`sm_70`, `sm_75` (and `sm_80`)
-feature		use cuSPARSE `prune2csr` and `csr2dense` to handle outlier
-bugfix		raise error when Huffman code is longer than 32 bits
-bugfix		histograming error
-deploy		revive pSZ
-feature		integrate parallel build Huffman codebook
-document	update help doc
-document	update published paper, "cuSZ"
-document	update acknowledgement
+v0.16, 250205
 
-August, 2020
-deploy		`sm_75` for Turing.
+refactor    pipeline internals, high-level APIs, modules, buffers
+refactor    no timer or stream sync inside each module
 
-July, 2020
-document	add a new NSF grant
+v0.15, 250111
 
-June, 2020
-bugfix		compile with CUDA 9 + gcc 7.3
+feature     CPU-seq backend; improved multi-backend support
+refactor    use `phf` namespace for HF
+deploy      speed up build process
+fix         compilation under CUDA 12.8 (off-branch tag `v0.15.1-fix`)
 
-May, 2020
-feature		add `--skip huffman` and `--verify huffman` options
-feature		add binning as preprocessing
-feature 	use `cuSparse` to transform `outlier` to dense format
-feature		add `argparse` to check and parse argument inputs
-refactor	add CUDA wrappers (e.g., `mem::create_CUDA_space`)
+v0.14, 241111
 
-April, 2020
-feature 	add concise and detailed help doc
-deploy		`sm_61` (e.g., P1000) and `sm_70` (e.g., V100) binary
-feature		add dry-run mode
-refactor	merge cuSZ and Huffman codec in driver program
-optimize	tune `blockDim` for 1D Lonrenzo, 2.7 GBps -> 16.8 GBps
-deploy		p2013histogram supersedes naive 2007 algorithm by default
-feature		add communication of equivalence calculation
-feature		use cooperative groups (CUDA 9 required) for canonical Huffman codebook
-optimize	faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
-feature		add Huffman inflating/decoding
-refactor	merge 1,2,3-D cuSZ
-feature		set 32- and 64-bit as internal Huffman codeword representation
-feature		now use arbitrary multiple-of-8-bit for quantization code
-feature		switch to canonical Huffman code for decoding
+feature     integrate FZGPU codec
+refactor    HF nested in codec directory
+fix         compilation under CUDA 12.8 (off-branch tag `v0.14.1-fix`)
 
-March, 2020
-optimize	tuning thread number for Huffman deflating and inflating
-feature		change freely to 32bit intermediate Huffman code representation
-demo		add EXAFEL demo
-feature		switch to faster histogramming
+v0.13, 241105
 
-February, 2020
-feature		SDRB suite metadata in `SDRB.hh`
-feature		visualize histogram (`pSZ`)
-milestone	`PdQ` for compression, Huffman encoding and deflating
+feature     (LRZ-x + ZigZag) kernels
+fix         compilation under CUDA 12.8 (off-branch tag `v0.13.1-fix`)
+
+v0.12, 241024
+
+feature     improved ZigZag codec
+fix         compilation under CUDA 12.8 (off-branch tag `v0.12.1-fix`)
+
+v0.11, 240831
+
+refactor    consistent kernel and utils function names
+fix         revert to synchronous malloc
+fix         compilation under CUDA 12.8 (off-branch tag `v0.11.1-fix`)
+
+v0.10-rc1, 240618
+
+feature     report device information, `versioninfo`
+refactor    C APIs and HF internals; 
+refactor    merge memory objects; 
+porting     `pszmem` across backends
+fix         HF internal-buffer issue; Huffman codec example
+fix         compilation under CUDA 12.8 (off-branch tag `v0.10.1-fix`)
+
+v0.9-rc3, 240316
+
+feature     error analysis via CLI data-dump
+fix         memory leak
+fix         compilation under CUDA 12.8 (off-branch tag `v0.9.1-fix`)
+
+v0.9-rc2, 240221
+
+feature     psz C and C++ interfaces for modules
+
+v0.9-rc1, 231215
+
+feature     `spl3` with compaction subrountine
+porting     HIP and SYCL/DPC++ backends
+refactor    portability layer for low-level control and subroutine
+fix         data race in kernels; buffer overflow in `memseg`
+fix         oversized buffer in HF; issue when compiling Thrust using CUDA 12.2 
+
+v0.8-rc3, 230826
+
+feature     GPU stream as `void *` in top-level API
+refactor    simplify dryrun
+fix         compilation under CUDA 12.8 (off-branch tag `v0.8.1-fix`)
+
+v0.8-rc1/rc2, 230820
+
+refactor    CUDA impl of extrema, alt. to Thrust impl
+refactor    disable Huffman codebook on GPU by default; retire CUB cmake script
+refactor    remove ad hoc print/scatter utils; obsolete tests and examples
+
+v0.7-rc1..rc4, 230819-230914
+
+fix         build issues caused by Thrust non-inclusion
+fix         compilation under CUDA 12.8 (off-branch tag `v0.7.1-fix`)
+
+v0.6, 230819
+
+feature     revert to CPU Huffman book
+refactor    `memseg` made as portable as possible
+fix         compilation under CUDA 12.8 (off-branch tag `v0.6.1-fix`)
+
+v0.5, 230814
+
+feature     add compaction subroutine in pred-quant kernel
+feature     add histsp (sparse histogram)
+fix         compilation under CUDA 12.8 (off-branch tag `v0.5.1-fix`)
+
+v0.4.2, 230810
+
+feature     prototype memory pool
+fix         compilation under CUDA 12.8 (off-branch tag `v0.4.3-fix`)
+
+v0.4.1, 230810
+
+refactor    add `memseg` and `pszmem_cxx` (obsolete now)
+
+v0.4, 230614
+
+feature     delta-signum Lorenzo kernels; `delta_only` (no further encoding)
+refactor    `shfl`-based 3D Lorenzo; refactored 1D/2D/3D Lorenzo kernels
+deploy      speed up build process; revise Huffman codebase
+fix         C-linkable timer utils (obsolete now)
+refactor    hip snippet; input data no longer destroyed by default; exceptions over exit
+
+v0.3, 220923
+
+feature     usable C API; error status; version number
+feature     add compiler firewall; `libcusz`
+feature     standalone Huffman executable
+feature     add auto-correlation metrics
+deploy      fix cmake config for `libpressio`; spackify CUB dependency
+
+v0.3-rc2, 220309
+
+feature     API demo 
+
+v0.3-rc1, 220227
+
+feature     spline3 kernel, predictor, and interp-spline3 compressor
+deploy      CSR10/CSR11 sparse codec, selected by CUDART version
+feature     utils: `from_file`/`to_file`; verify quality on GPU or CPU
+fix         memory issues
+
+v0.2.9.1, 210913
+
+feature     Lorenzo 1D/2D/3D construction and partial-sum reconstruction
+feature     spline-interpolation predictor (draft); `--predictor`
+feature     add compressibility analysis; add sparisty-handling RLE path
+feature     `opt=val` argparser
+deploy      cmake support alongside the build script
+fix         fp-number parsing; mantissa-exponent removal
+
+v0.2.2, 210122
+
+refactor    lorenzo_v2 for 1D, lorenzo_v3 for 2D/3D
+
+v0.2.1, 210103
+
+feature     `--nvcomp` option in CLI
+
+v0.2.0, 210102
+
+feature     integrate nvcomp; add thrust-based gather-scatter
+feature     `--gzip` option; machine query and `--verbose`
+fix         argparse checking; `--extended-lambda`
+
+v0.1.3, 201026
+
+deploy      support Pascal GPUs
+fix         memory issues; redundant archives
+
+v0.1.2, 200928
+
+feature     slightly better performance for Lorenzo-1D
+
+v0.1.1, 200927
+
+feature     basic pipeline: {1,2,3}-D Lorenzo, canonical Huffman codec
+deploy      compile with CUDA 9 + gcc 7.3

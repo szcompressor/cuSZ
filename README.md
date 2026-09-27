@@ -8,7 +8,7 @@ pSZ/cuSZ: A GPU-Based Error-Bounded Lossy Compressor for Scientific Data
 <a href="./LICENSE"><img src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"></a>
 </p>
 
-pSZ/cuSZ is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (c. 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ is formerly known as cuSZ, which is also the short form of its current name. 
+pSZ/cuSZ is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (c. 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ was formerly known as cuSZ, which is also the short form of its current name. 
 
 (c) 2025 by Argonne National Laboratory and Oakland University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in the top-level directory.
 
@@ -19,36 +19,73 @@ pSZ/cuSZ is a GPU implementation of the seminal [SZ algorithm](https://github.co
 
 <br>
 
-<p align="center", style="font-size: 2em">
-<a href="https://github.com/szcompressor/cuSZ/wiki/Build-and-Install"><b>build from source code</b></a>
-&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-<a href="https://github.com/szcompressor/cuSZ/wiki/Use"><b>use as a command-line tool</b></a>
-&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-<a href="https://github.com/szcompressor/cuSZ/wiki/API"><b>API reference</b></a>
+<p align="center" style="font-size: 1.5em">
+<a href="https://github.com/szcompressor/cuSZ/wiki/Build-and-Install"><b>Build from src</b></a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="https://github.com/szcompressor/cuSZ/wiki/Experiments"><b>CLI Tools</b></a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="https://github.com/szcompressor/cuSZ/wiki/API"><b>API</b></a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="https://github.com/szcompressor/cuSZ/wiki/API#python"><b>pybinding</b></a>
 </p>
 
 <p align="center">
-Kindly note: If you mention pSZ/cuSZ in your paper, please refer to <a href="#citing-cusz">the detail below</a>.
+Kindly note: If you mention pSZ/cuSZ in your paper, please refer to <a href="#cite-pszcusz">the detail below</a>.
 </p>
+
+
+### Build from source
+
+The CUDA backend is the development focus. With a C++17-compliant host compiler (e.g., GCC 9 onward or any version of Clang), CUDA SDK 11.4 onward (CUDA 13 is used for development), and CMake 3.18 onward, the build process is excerpted below. Without specifying `-DCMAKE_CUDA_ARCHITECTURES=".."` (for CMake) or `CUDAARCHS=` (in shell), the build targets `75`.
+
+```bash
+git clone --recursive https://github.com/szcompressor/cuSZ.git cusz-latest
+cd cusz-latest && mkdir build && cd build
+cmake .. \
+    -DPSZ_BACKEND=cuda \
+    -DPSZ_BUILD_EXAMPLES=on \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_COLOR_DIAGNOSTICS=on 
+# -DCMAKE_INSTALL_PREFIX=[/path/to/install/dir] can be further specified
+make -j
+make install
+```
+
+[The wiki page](https://github.com/szcompressor/cuSZ/wiki/Build-and-Install) also lists the recommended GCC and Clang combinations.
+
+
+### Python binding
+
+The `psz` pybinding (using [nanobind](https://github.com/wjakob/nanobind)) works on [CuPy](https://cupy.dev) arrays. The build-install process, `CUDAARCHS="<sm>" pip install -e py_ext --no-build-isolation` (also see [the wiki page](https://github.com/szcompressor/cuSZ/wiki/Build-and-Install#python-binding)), implicitly requires the same as the previous section in the C++ part. In addition, the sample 
+ [`example/src/demo_py.ipynb`](example/src/demo_py.ipynb) walks through the basic use of the pybinding. 
+
+```python
+from psz import compress_init, decompress_init
+
+with compress_init(data.shape) as c:  # data: a float32 CuPy array
+    c.compress_process("lrz..", data, 1e-3 * c.compress_extrema(data).rng)
+    header, archive = c.compress_archive()
+
+with decompress_init(header) as dc:
+    xdata = dc.decompress_process(archive)
+```
 
 
 ### FAQ
 
-There are technical differences between CPU-SZ and pSZ/cuSZ, please refer to our academic papers for more information.  
+There are technical differences between CPU-SZ and pSZ/cuSZ; please refer to our academic papers for more information.  
 
 <details>
 <summary>
 How do SZ and pSZ/cuSZ work?
 </summary>
 
-The prediction-based SZ algorithm comprises four major parts,
+The prediction-based SZ algorithm comprises four major parts:
 
-0. User specifies error-mode (e.g., absolute value (`abs`), or relative to data value magnitude (`r2r`) and error-bound.
+0. User specifies error-mode (e.g., absolute value (`abs`), or relative to data value magnitude (`r2r`)) and error-bound.
 1. Prediction errors are quantized in units of input error-bound (*quant-code*). Range-limited quant-codes are stored, whereas the out-of-range codes are otherwise gathered as *outlier*.
-3. The in-range quant-codes are fed into a Huffman encoder. A Huffman symbol may be represented in multiple bytes.
-4. (CPU-only) An additional DEFLATE method is applied to exploit repeated patterns. As of CLUSTER '21 cuSZ+ work, an RLE method performs a similar pattern-exploiting.
-
-</details>
+2. The in-range quant-codes are fed into a Huffman encoder. A Huffman symbol may be represented in multiple bytes.
+3. (CPU-only) An additional DEFLATE method is applied to exploit repeated patterns. As of CLUSTER '21 cuSZ+ work, an RLE method performs a similar pattern-exploiting.
 
 </details>
 
@@ -57,7 +94,7 @@ The prediction-based SZ algorithm comprises four major parts,
 How does cuSZ evolve over the years?
 </summary>
 
-cuSZ and its variants use variable techniques to balance the need for data-reconstruction quality, compression ratio, and data-processing speed. A quick comparison is given below.
+cuSZ and its variants use various techniques to balance the need for data-reconstruction quality, compression ratio, and data-processing speed. A quick comparison is given below.
 
 Notably, cuSZ (Tian et al., '20, '21) as the basic framework provides a balanced compression ratio and quality, while FZ-GPU (Zhang, Tian et al., '23) and SZp-CUDA/GSZ (Huang et al., '23, '24) prioritize data processing speed. cuSZ+ (hi-ratio) is an outcome of data compressibility research to demonstrate that certain methods (e.g., RLE) can work better in highly compressible cases (Tian et al., '21). The latest art, cuSZ-i (Liu, Tian, Wu et al., '24), attempts to utilize the QoZ-like methods (Liu et al., '22) to significantly enhance the data-reconstruction quality and the compression ratio.
 
@@ -126,17 +163,16 @@ We tested cuSZ using datasets from [Scientific Data Reduction Benchmarks](https:
 
 Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please kindly cite using `\cite{tian2020cusz,tian2021cuszplus,liu_tian_wu2024cuszi,wu_pan2025cuszhi}` and the BibTeX entries below (or standalone [`.bib` file](doc/psz-cusz.bib)).
 
-1. The **PACT '20: cuSZ** paper ( [local copy](doc/20_PACT_cuSZ.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625) ) covers
-    - Basic framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
-2. The **CLUSTER '21: cuSZ+** paper ( [local copy](doc/21_CLUSTER_cuSZ+.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}) | [arXiv](https://arxiv.org/abs/2105.12912) ) covers
-    - Optimization in throughput, featuring fine-grained *N*-D "reconstruction"
-    - Optimization in compression ratio, when data is deemed as "smooth"
-3. The **SC '24: cuSZ-_i_** paper ( [local copy](doc/24_SC_cuSZ-i.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019) | [arXiv](https://arxiv.org/abs/2312.05492) ) covers
-    - Spline-interpolation-based high-ratio data compression and high-quality data reconstruction
-    - Compresion-ratio boost from incorporating the synergetic lossless encoding
-4. The **SC '25: cuSZ-Hi** work ([ACM](https://dl.acm.org/doi/10.1145/3712285.3759798) | [arxiv](https://arxiv.org/abs/2507.11165) covers)
-    - The improved compression ratio by utilizing the [LC framework](https://github.com/burtscher/LC-framework), a lossless codec composer authored by the [research team led by Dr. Martin Burtscher](https://userweb.cs.txstate.edu/~burtscher/).
-    - HiTP and HiCR modes are provided to further push the boundary of achievable rate-distortion on top of cuSZ-_i_.
+1. The **cuSZ** (PACT '20) and **cuSZ+** (CLUSTER '21) papers (`\cite{tian2020cusz,tian2021cuszplus}`) cover
+    - Basic framework: $N$-D Lorenzo prediction and Huffman encoding on GPU.
+    - Algorithmic novelty: fully parallelized $N$-D Lorenzo prediction and reverse prediction.
+    - Pipeline novelty: alternative route for cases with extremely "smooth" data.
+    - PACT '20: ([local](doc/20_PACT_cuSZ.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625)) and CLUSTER '21: ([local](doc/21_CLUSTER_cuSZ+.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047) | [arXiv](https://arxiv.org/abs/2105.12912)) 
+2. The **cuSZ-_i_** (SC '24) and **cuSZ-Hi** (SC '25) papers (`\cite{liu_tian_wu2024cuszi,wu_pan2025cuszhi}`) cover
+    - SZ3/QoZ-HPEZ pipeline on GPU: spline-interpolation-based data reconstruction with high rate-distortion capability.
+    - Pipeline novelty: GPU-realistic ratio-boosting synergetic encoding stage applied to the original framework is designed (cuSZ-_i_). 
+    - Pipeline novelty: It is further discussed in cuSZ-Hi using the sub-pipeline composition by the [LC framework](https://github.com/burtscher/LC-framework) (a research project led by [Dr. Martin Burtscher](https://userweb.cs.txstate.edu/~burtscher/)), forming two presets, HiTP and HiCR, further pushing the boundary of achievable rate-distortion on GPU.
+    - SC '24: ([local copy](doc/24_SC_cuSZ-i.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019) | [arXiv](https://arxiv.org/abs/2312.05492)) and SC '25: ([ACM](https://dl.acm.org/doi/10.1145/3712285.3759798) | [arXiv](https://arxiv.org/abs/2507.11165))
 
 ```bibtex
 @inproceedings{tian2020cusz,
