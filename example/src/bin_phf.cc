@@ -13,6 +13,7 @@
 #include "kernel.hh"
 #include "phf.hh"
 #include "ptb.hh"
+#include "mem/gpu_timer.hh"
 
 using std::string;
 namespace utils = _ptb::utils;
